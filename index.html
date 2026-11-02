@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="referrer" content="no-referrer">
+<title>收款中转 · 阶段0测试</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", sans-serif;
+         background: #f5f5f5; color: #333; padding: 14px; font-size: 14px; }
+  .wrap { max-width: 480px; margin: 0 auto; }
+  h1 { font-size: 18px; margin: 4px 0 12px; }
+  .card { background: #fff; border-radius: 10px; padding: 14px; margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+  .card h2 { font-size: 14px; color: #666; margin-bottom: 10px; }
+  .row { display: flex; justify-content: space-between; gap: 8px; padding: 5px 0; border-bottom: 1px solid #f2f2f2; }
+  .row:last-child { border-bottom: 0; }
+  .row b { font-weight: 500; color: #888; white-space: nowrap; }
+  .row span { text-align: right; word-break: break-all; }
+  .ok { color: #07a35a; } .no { color: #e5484d; } .warn { color: #c27c0e; }
+  input, textarea { width: 100%; border: 1px solid #d6d6d6; border-radius: 8px; padding: 9px 10px; font-size: 13px;
+                    font-family: ui-monospace, Menlo, monospace; background: #fafafa; }
+  textarea { min-height: 90px; resize: vertical; }
+  .btn { display: block; width: 100%; margin-top: 10px; padding: 11px; border: 0; border-radius: 8px;
+         font-size: 15px; background: #07c160; color: #fff; }
+  .btn:disabled { background: #a8d8b0; }
+  .btn.gray { background: #e8e8e8; color: #555; }
+  .hint { font-size: 12px; color: #999; margin-top: 6px; line-height: 1.6; }
+  #log { font-family: ui-monospace, Menlo, monospace; font-size: 12px; white-space: pre-wrap; word-break: break-all;
+         background: #f7f7f7; border-radius: 6px; padding: 8px; max-height: 220px; overflow-y: auto; color: #555; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>收款中转 · 阶段 0 测试页</h1>
+
+  <div class="card">
+    <h2>① 环境</h2>
+    <div class="row"><b>微信内置浏览器</b><span id="envWx">-</span></div>
+    <div class="row"><b>WeixinJSBridge</b><span id="envBridge">-</span></div>
+    <div class="row"><b>URL # 参数可读</b><span id="envHash">-</span></div>
+    <div class="row"><b>页面域名</b><span id="envHost">-</span></div>
+    <div class="hint" id="envUa"></div>
+  </div>
+
+  <div class="card">
+    <h2>② 从本页访问 yyb</h2>
+    <input id="yybBase" placeholder="https://你的yyb域名（不带末尾 /）">
+    <button class="btn gray" id="netBtn">测试连通</button>
+    <div class="row" style="margin-top:8px;"><b>网络可达（no-cors）</b><span id="netReach">-</span></div>
+    <div class="row"><b>跨域读取（cors）</b><span id="netCors">-</span></div>
+    <div class="hint">「网络可达」成功 = 微信没有拦截页面里的请求，这是阶段 0 要验证的。<br>
+      「跨域读取」现在失败是正常的：yyb 还没开 CORS，正式开发时再加。</div>
+  </div>
+
+  <div class="card">
+    <h2>③ 真实收款测试</h2>
+    <textarea id="payInput" placeholder="粘贴一条未领的提现单，格式：&#10;备注#mch_id#app_id#package&#10;或 mch_id#app_id#package"></textarea>
+    <button class="btn" id="payBtn" disabled>确认收款</button>
+    <div class="hint">必须用这条提现单对应的微信号打开本页。结果会原样显示在下方日志。</div>
+  </div>
+
+  <div class="card">
+    <h2>④ 日志</h2>
+    <div id="log"></div>
+    <button class="btn gray" id="copyBtn">复制测试结果</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var ua = navigator.userAgent || '';
+  var isWx = /MicroMessenger/i.test(ua);
+  var isPcWx = /WindowsWechat|MacWechat/i.test(ua);
+  var bridgeReady = typeof window.WeixinJSBridge !== 'undefined';
+  var results = {};
+
+  function log(msg) {
+    var t = new Date().toLocaleTimeString();
+    $('log').textContent = '[' + t + '] ' + msg + '\n' + $('log').textContent;
+  }
+  function setStat(id, ok, text) {
+    var el = $(id);
+    el.className = ok === true ? 'ok' : ok === false ? 'no' : 'warn';
+    el.textContent = text;
+    results[id] = text;
+  }
+
+  // ① 环境
+  setStat('envWx', isWx && !isPcWx, isWx ? (isPcWx ? '是（PC 微信，不支持收款）' : '是') : '否');
+  setStat('envHost', null, location.host);
+  var hash = location.hash.replace(/^#/, '');
+  setStat('envHash', hash ? true : null, hash ? ('是：' + hash.slice(0, 40)) : '无（可在链接末尾加 #t=test 测试）');
+  $('envUa').textContent = 'UA：' + ua;
+  function onBridge() {
+    bridgeReady = true;
+    setStat('envBridge', true, '就绪');
+    refreshPayBtn();
+  }
+  if (bridgeReady) onBridge();
+  else {
+    setStat('envBridge', isWx ? null : false, isWx ? '等待中…' : '不可用');
+    document.addEventListener('WeixinJSBridgeReady', onBridge, false);
+  }
+
+  // ② 连通
+  try { $('yybBase').value = localStorage.getItem('yybBase') || ''; } catch (e) {}
+  $('netBtn').onclick = function () {
+    var base = $('yybBase').value.trim().replace(/\/+$/, '');
+    if (!/^https:\/\//i.test(base)) { log('⚠️ 请填 https:// 开头的 yyb 地址（Pages 是 HTTPS，http 会被浏览器拦截）'); return; }
+    try { localStorage.setItem('yybBase', base); } catch (e) {}
+    setStat('netReach', null, '测试中…'); setStat('netCors', null, '测试中…');
+    var t0 = Date.now();
+    fetch(base + '/?_=' + t0, { mode: 'no-cors', cache: 'no-store', credentials: 'omit' })
+      .then(function () { setStat('netReach', true, '成功 ' + (Date.now() - t0) + 'ms'); log('✅ no-cors 请求成功'); })
+      .catch(function (e) { setStat('netReach', false, '失败：' + e); log('❌ no-cors 请求失败：' + e); });
+    fetch(base + '/api/v1/ping?_=' + t0, { mode: 'cors', cache: 'no-store', credentials: 'omit' })
+      .then(function (r) { setStat('netCors', true, 'HTTP ' + r.status); log('cors 返回 HTTP ' + r.status); })
+      .catch(function (e) { setStat('netCors', null, '失败（预期内）：' + e); log('cors 失败（预期内）：' + e); });
+  };
+
+  // ③ 收款
+  function parseLine() {
+    var line = ($('payInput').value || '').split('\n').filter(function (l) { return l.trim(); })[0] || '';
+    var p = line.split('#').map(function (s) { return s.trim(); });
+    if (p.length >= 4) return { remark: p[0], mchId: p[1], appId: p[2], package: p.slice(3).join('#') };
+    if (p.length === 3) return { remark: '', mchId: p[0], appId: p[1], package: p[2] };
+    return null;
+  }
+  function refreshPayBtn() {
+    var r = parseLine();
+    $('payBtn').disabled = !(isWx && !isPcWx && bridgeReady && r && r.mchId && r.appId && r.package);
+  }
+  $('payInput').addEventListener('input', refreshPayBtn);
+  $('payBtn').onclick = function () {
+    var r = parseLine();
+    if (!r) return;
+    log('⏳ 拉起收款 mchId=' + r.mchId + ' appId=' + r.appId);
+    window.WeixinJSBridge.invoke('requestMerchantTransfer',
+      { mchId: r.mchId, appId: r.appId, package: r.package },
+      function (res) {
+        var msg = (res && res.err_msg) || JSON.stringify(res);
+        results.pay = msg;
+        log((msg === 'requestMerchantTransfer:ok' ? '✅ ' : '⚠️ ') + '返回：' + msg + '  完整：' + JSON.stringify(res));
+      });
+  };
+
+  // ④ 复制
+  $('copyBtn').onclick = function () {
+    var text = '阶段0结果\n' + JSON.stringify(results, null, 1) + '\nUA: ' + ua + '\n\n日志:\n' + $('log').textContent;
+    var done = function () { log('📋 已复制'); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, function () { fallback(text); done(); });
+    } else { fallback(text); done(); }
+  };
+  function fallback(text) {
+    var ta = document.createElement('textarea');
+    ta.value = text; document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); } catch (e) {}
+    ta.remove();
+  }
+
+  refreshPayBtn();
+  log('页面就绪');
+})();
+</script>
+</body>
+</html>
