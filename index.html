@@ -4,165 +4,263 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="referrer" content="no-referrer">
-<title>收款中转 · 阶段0测试</title>
+<title>确认收款</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", sans-serif;
-         background: #f5f5f5; color: #333; padding: 14px; font-size: 14px; }
+         background: #f5f5f5; color: #333; padding: 14px 14px 40px; font-size: 14px; }
   .wrap { max-width: 480px; margin: 0 auto; }
-  h1 { font-size: 18px; margin: 4px 0 12px; }
-  .card { background: #fff; border-radius: 10px; padding: 14px; margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
-  .card h2 { font-size: 14px; color: #666; margin-bottom: 10px; }
-  .row { display: flex; justify-content: space-between; gap: 8px; padding: 5px 0; border-bottom: 1px solid #f2f2f2; }
-  .row:last-child { border-bottom: 0; }
-  .row b { font-weight: 500; color: #888; white-space: nowrap; }
-  .row span { text-align: right; word-break: break-all; }
-  .ok { color: #07a35a; } .no { color: #e5484d; } .warn { color: #c27c0e; }
-  input, textarea { width: 100%; border: 1px solid #d6d6d6; border-radius: 8px; padding: 9px 10px; font-size: 13px;
-                    font-family: ui-monospace, Menlo, monospace; background: #fafafa; }
-  textarea { min-height: 90px; resize: vertical; }
-  .btn { display: block; width: 100%; margin-top: 10px; padding: 11px; border: 0; border-radius: 8px;
-         font-size: 15px; background: #07c160; color: #fff; }
+  h1 { font-size: 19px; margin: 6px 2px 4px; }
+  .sub { color: #999; font-size: 12px; margin: 0 2px 12px; }
+  .card { background: #fff; border-radius: 12px; padding: 14px; margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+  .notice { border-left: 4px solid #ffc107; background: #fff8e1; color: #7a5b00; }
+  .err { border-left: 4px solid #fa5151; background: #fff1f0; color: #a8071a; }
+  .group-title { font-size: 13px; color: #888; margin: 4px 2px 8px; }
+  .group-title b { color: #333; font-size: 15px; }
+  .item { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid #f2f2f2; }
+  .item:last-child { border-bottom: 0; }
+  .item .info { flex: 1; min-width: 0; }
+  .item .remark { font-size: 14px; word-break: break-all; }
+  .item .meta { font-size: 12px; color: #aaa; margin-top: 2px; }
+  .amt { color: #fa8c16; font-weight: 600; margin-left: 4px; }
+  .btn { border: 0; border-radius: 8px; padding: 9px 14px; font-size: 14px; background: #07c160; color: #fff; white-space: nowrap; }
   .btn:disabled { background: #a8d8b0; }
-  .btn.gray { background: #e8e8e8; color: #555; }
-  .hint { font-size: 12px; color: #999; margin-top: 6px; line-height: 1.6; }
-  #log { font-family: ui-monospace, Menlo, monospace; font-size: 12px; white-space: pre-wrap; word-break: break-all;
-         background: #f7f7f7; border-radius: 6px; padding: 8px; max-height: 220px; overflow-y: auto; color: #555; }
+  .btn.block { display: block; width: 100%; padding: 12px; font-size: 16px; margin-top: 4px; }
+  .btn.gray { background: #ececec; color: #555; }
+  .tag { font-size: 12px; padding: 3px 10px; border-radius: 20px; white-space: nowrap; }
+  .tag.ok { background: #dcfce7; color: #166534; }
+  .tag.fail { background: #fff1f0; color: #cf1322; }
+  .summary { display: flex; justify-content: space-between; align-items: center; }
+  .summary b { font-size: 20px; color: #07c160; }
+  textarea { width: 100%; min-height: 90px; border: 1px solid #d6d6d6; border-radius: 8px; padding: 9px 10px;
+             font-size: 13px; font-family: ui-monospace, Menlo, monospace; background: #fafafa; }
+  .foot { text-align: center; color: #bbb; font-size: 12px; margin-top: 16px; line-height: 1.7; }
+  .hidden { display: none; }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h1>收款中转 · 阶段 0 测试页</h1>
+  <h1>确认收款</h1>
+  <div class="sub" id="sub">正在读取…</div>
 
-  <div class="card">
-    <h2>① 环境</h2>
-    <div class="row"><b>微信内置浏览器</b><span id="envWx">-</span></div>
-    <div class="row"><b>WeixinJSBridge</b><span id="envBridge">-</span></div>
-    <div class="row"><b>URL # 参数可读</b><span id="envHash">-</span></div>
-    <div class="row"><b>页面域名</b><span id="envHost">-</span></div>
-    <div class="hint" id="envUa"></div>
+  <div class="card notice hidden" id="envBox"></div>
+  <div class="card err hidden" id="errBox"></div>
+
+  <div class="card hidden" id="sumBox">
+    <div class="summary"><span>已收 <b id="sumDone">0</b> / <span id="sumAll">0</span></span>
+      <button class="btn gray" id="reloadBtn">刷新</button></div>
+    <button class="btn block" id="allBtn">依次确认全部待收</button>
   </div>
 
-  <div class="card">
-    <h2>② 从本页访问 yyb</h2>
-    <input id="yybBase" placeholder="https://你的yyb域名（不带末尾 /）">
-    <button class="btn gray" id="netBtn">测试连通</button>
-    <div class="row" style="margin-top:8px;"><b>网络可达（no-cors）</b><span id="netReach">-</span></div>
-    <div class="row"><b>跨域读取（cors）</b><span id="netCors">-</span></div>
-    <div class="hint">「网络可达」成功 = 微信没有拦截页面里的请求，这是阶段 0 要验证的。<br>
-      「跨域读取」现在失败是正常的：yyb 还没开 CORS，正式开发时再加。</div>
+  <div id="list"></div>
+
+  <div class="card hidden" id="manualBox">
+    <div class="group-title"><b>手动收款</b>（没有收款链接时用）</div>
+    <textarea id="manualInput" placeholder="每行一条：备注#mch_id#app_id#package（备注可省略）"></textarea>
+    <button class="btn block" id="manualBtn">导入</button>
   </div>
 
-  <div class="card">
-    <h2>③ 真实收款测试</h2>
-    <textarea id="payInput" placeholder="粘贴一条未领的提现单，格式：&#10;备注#mch_id#app_id#package&#10;或 mch_id#app_id#package"></textarea>
-    <button class="btn" id="payBtn" disabled>确认收款</button>
-    <div class="hint">必须用这条提现单对应的微信号打开本页。结果会原样显示在下方日志。</div>
-  </div>
-
-  <div class="card">
-    <h2>④ 日志</h2>
-    <div id="log"></div>
-    <button class="btn gray" id="copyBtn">复制测试结果</button>
-  </div>
+  <div class="foot">必须用领款的那个微信号打开本页。<br>本页只是中转，不保存任何收款数据。</div>
 </div>
 
 <script>
 (function () {
+  'use strict';
+  // 可选白名单：只允许从这些 yyb 地址读单。留空 = 任何 https 地址都接受（单据只能被领款人自己确认，风险很低）。
+  var ALLOWED_API = [];
+  var OK = 'requestMerchantTransfer:ok';
+
   var $ = function (id) { return document.getElementById(id); };
   var ua = navigator.userAgent || '';
-  var isWx = /MicroMessenger/i.test(ua);
-  var isPcWx = /WindowsWechat|MacWechat/i.test(ua);
+  var inWx = /MicroMessenger/i.test(ua) && !/WindowsWechat|MacWechat/i.test(ua);
   var bridgeReady = typeof window.WeixinJSBridge !== 'undefined';
-  var results = {};
+  var api = '', token = '', items = [], running = false;
 
-  function log(msg) {
-    var t = new Date().toLocaleTimeString();
-    $('log').textContent = '[' + t + '] ' + msg + '\n' + $('log').textContent;
+  function show(id, on) { $(id).classList.toggle('hidden', !on); }
+  function err(msg) { $('errBox').textContent = msg; show('errBox', !!msg); }
+  function el(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
   }
-  function setStat(id, ok, text) {
-    var el = $(id);
-    el.className = ok === true ? 'ok' : ok === false ? 'no' : 'warn';
-    el.textContent = text;
-    results[id] = text;
-  }
-
-  // ① 环境
-  setStat('envWx', isWx && !isPcWx, isWx ? (isPcWx ? '是（PC 微信，不支持收款）' : '是') : '否');
-  setStat('envHost', null, location.host);
-  var hash = location.hash.replace(/^#/, '');
-  setStat('envHash', hash ? true : null, hash ? ('是：' + hash.slice(0, 40)) : '无（可在链接末尾加 #t=test 测试）');
-  $('envUa').textContent = 'UA：' + ua;
-  function onBridge() {
-    bridgeReady = true;
-    setStat('envBridge', true, '就绪');
-    refreshPayBtn();
-  }
-  if (bridgeReady) onBridge();
-  else {
-    setStat('envBridge', isWx ? null : false, isWx ? '等待中…' : '不可用');
-    document.addEventListener('WeixinJSBridgeReady', onBridge, false);
+  function money(f) { return f > 0 ? '¥' + (f / 100).toFixed(2) : ''; }
+  function fmt(ts) {
+    var d = new Date(ts), p = function (n) { return (n < 10 ? '0' : '') + n; };
+    return p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
   }
 
-  // ② 连通
-  try { $('yybBase').value = localStorage.getItem('yybBase') || ''; } catch (e) {}
-  $('netBtn').onclick = function () {
-    var base = $('yybBase').value.trim().replace(/\/+$/, '');
-    if (!/^https:\/\//i.test(base)) { log('⚠️ 请填 https:// 开头的 yyb 地址（Pages 是 HTTPS，http 会被浏览器拦截）'); return; }
-    try { localStorage.setItem('yybBase', base); } catch (e) {}
-    setStat('netReach', null, '测试中…'); setStat('netCors', null, '测试中…');
-    var t0 = Date.now();
-    fetch(base + '/?_=' + t0, { mode: 'no-cors', cache: 'no-store', credentials: 'omit' })
-      .then(function () { setStat('netReach', true, '成功 ' + (Date.now() - t0) + 'ms'); log('✅ no-cors 请求成功'); })
-      .catch(function (e) { setStat('netReach', false, '失败：' + e); log('❌ no-cors 请求失败：' + e); });
-    fetch(base + '/api/v1/ping?_=' + t0, { mode: 'cors', cache: 'no-store', credentials: 'omit' })
-      .then(function (r) { setStat('netCors', true, 'HTTP ' + r.status); log('cors 返回 HTTP ' + r.status); })
-      .catch(function (e) { setStat('netCors', null, '失败（预期内）：' + e); log('cors 失败（预期内）：' + e); });
-  };
+  function parseHash() {
+    var q = {};
+    location.hash.replace(/^#/, '').split('&').forEach(function (kv) {
+      var i = kv.indexOf('=');
+      if (i > 0) { try { q[kv.slice(0, i)] = decodeURIComponent(kv.slice(i + 1)); } catch (e) {} }
+    });
+    return q;
+  }
 
-  // ③ 收款
-  function parseLine() {
-    var line = ($('payInput').value || '').split('\n').filter(function (l) { return l.trim(); })[0] || '';
-    var p = line.split('#').map(function (s) { return s.trim(); });
-    if (p.length >= 4) return { remark: p[0], mchId: p[1], appId: p[2], package: p.slice(3).join('#') };
-    if (p.length === 3) return { remark: '', mchId: p[0], appId: p[1], package: p[2] };
-    return null;
+  // ---------- 环境 ----------
+  function renderEnv() {
+    if (!inWx) {
+      $('envBox').textContent = '请在手机微信中打开本链接（复制链接发到领款的微信，或用领款微信扫码）。当前浏览器无法确认收款。';
+      show('envBox', true);
+    } else if (!bridgeReady) {
+      $('envBox').textContent = '正在等待微信接口就绪…';
+      show('envBox', true);
+    } else {
+      show('envBox', false);
+    }
+    render();
   }
-  function refreshPayBtn() {
-    var r = parseLine();
-    $('payBtn').disabled = !(isWx && !isPcWx && bridgeReady && r && r.mchId && r.appId && r.package);
+  document.addEventListener('WeixinJSBridgeReady', function () { bridgeReady = true; renderEnv(); }, false);
+
+  // ---------- 拉起 ----------
+  function invoke(it) {
+    return new Promise(function (resolve) {
+      if (!window.WeixinJSBridge) { resolve('bridge-missing'); return; }
+      window.WeixinJSBridge.invoke('requestMerchantTransfer',
+        { mchId: it.mchId, appId: it.appId, package: it.package },
+        function (res) { resolve((res && res.err_msg) || 'unknown'); });
+    });
   }
-  $('payInput').addEventListener('input', refreshPayBtn);
-  $('payBtn').onclick = function () {
-    var r = parseLine();
-    if (!r) return;
-    log('⏳ 拉起收款 mchId=' + r.mchId + ' appId=' + r.appId);
-    window.WeixinJSBridge.invoke('requestMerchantTransfer',
-      { mchId: r.mchId, appId: r.appId, package: r.package },
-      function (res) {
-        var msg = (res && res.err_msg) || JSON.stringify(res);
-        results.pay = msg;
-        log((msg === 'requestMerchantTransfer:ok' ? '✅ ' : '⚠️ ') + '返回：' + msg + '  完整：' + JSON.stringify(res));
+  function ack(it, msg) {
+    if (!api || !token || it.local) return Promise.resolve();
+    // text/plain = 简单请求，不触发 CORS 预检；yyb 端按 JSON 解析
+    return fetch(api + '/api/v1/receipts/relay/' + encodeURIComponent(token) + '/ack', {
+      method: 'POST', mode: 'cors', credentials: 'omit', cache: 'no-store',
+      headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ id: it.id, errMsg: msg })
+    }).catch(function () {});
+  }
+  function pay(it) {
+    it.busy = true; render();
+    return invoke(it).then(function (msg) {
+      it.busy = false;
+      if (msg === 'bridge-missing') { err('微信接口不可用，请稍后再试'); render(); return false; }
+      it.last = msg;
+      if (msg === OK) { it.status = 'received'; }
+      render();
+      return ack(it, msg).then(function () { return msg === OK; });
+    });
+  }
+  function payAll() {
+    if (running) return;
+    running = true;
+    var queue = items.filter(function (x) { return x.status === 'pending' && x.package; });
+    (function next() {
+      var it = queue.shift();
+      if (!it) { running = false; render(); return; }
+      pay(it).then(function (ok) { if (ok) next(); else { running = false; render(); } });
+    })();
+  }
+
+  // ---------- 渲染 ----------
+  function render() {
+    var box = $('list');
+    box.innerHTML = '';
+    var groups = {}, order = [];
+    items.forEach(function (it) {
+      var k = it.wxName || '未命名账号';
+      if (!groups[k]) { groups[k] = []; order.push(k); }
+      groups[k].push(it);
+    });
+    var canPay = inWx && bridgeReady;
+    order.forEach(function (name) {
+      var card = el('div', 'card');
+      var t = el('div', 'group-title');
+      t.appendChild(el('b', '', name));
+      t.appendChild(document.createTextNode('  · ' + groups[name].length + ' 笔'));
+      card.appendChild(t);
+      groups[name].forEach(function (it) {
+        var row = el('div', 'item');
+        var info = el('div', 'info');
+        var r = el('div', 'remark', it.remark || '收款');
+        if (it.amountFen) r.appendChild(el('span', 'amt', money(it.amountFen)));
+        info.appendChild(r);
+        if (it.last && it.last !== OK) info.appendChild(el('div', 'meta', '上次结果：' + it.last));
+        row.appendChild(info);
+        if (it.status === 'received') {
+          row.appendChild(el('span', 'tag ok', '已收'));
+        } else if (!it.package) {
+          row.appendChild(el('span', 'tag fail', '缺参数'));
+        } else {
+          var b = el('button', 'btn', it.busy ? '处理中…' : '确认收款');
+          b.disabled = !canPay || it.busy || running;
+          b.onclick = function () { pay(it); };
+          row.appendChild(b);
+        }
+        card.appendChild(row);
       });
-  };
-
-  // ④ 复制
-  $('copyBtn').onclick = function () {
-    var text = '阶段0结果\n' + JSON.stringify(results, null, 1) + '\nUA: ' + ua + '\n\n日志:\n' + $('log').textContent;
-    var done = function () { log('📋 已复制'); };
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).then(done, function () { fallback(text); done(); });
-    } else { fallback(text); done(); }
-  };
-  function fallback(text) {
-    var ta = document.createElement('textarea');
-    ta.value = text; document.body.appendChild(ta); ta.select();
-    try { document.execCommand('copy'); } catch (e) {}
-    ta.remove();
+      box.appendChild(card);
+    });
+    var done = items.filter(function (x) { return x.status === 'received'; }).length;
+    $('sumDone').textContent = done;
+    $('sumAll').textContent = items.length;
+    show('sumBox', items.length > 0);
+    $('allBtn').disabled = !canPay || running || done === items.length;
+    $('allBtn').textContent = running ? '正在依次确认…' : '依次确认全部待收';
   }
 
-  refreshPayBtn();
-  log('页面就绪');
+  // ---------- 读单 ----------
+  function load() {
+    err('');
+    return fetch(api + '/api/v1/receipts/relay/' + encodeURIComponent(token), {
+      mode: 'cors', credentials: 'omit', cache: 'no-store'
+    }).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (j) {
+        if (!r.ok || !j.success) throw new Error(j.error || ('HTTP ' + r.status));
+        return j;
+      });
+    }).then(function (j) {
+      var prev = {};
+      items.forEach(function (x) { prev[x.id] = x; });
+      items = (j.receipts || []).map(function (x) {
+        if (prev[x.id] && prev[x.id].last) x.last = prev[x.id].last;
+        return x;
+      });
+      $('sub').textContent = '共 ' + items.length + ' 笔 · 链接 ' + fmt(j.expireAt) + ' 前有效';
+      render();
+    }).catch(function (e) {
+      $('sub').textContent = '读取失败';
+      err('读取收款单失败：' + (e && e.message || e) + '。如果链接已过期，请在 yyb 重新生成。');
+    });
+  }
+
+  // ---------- 手动模式（没有链接参数时）----------
+  function manualImport() {
+    var lines = ($('manualInput').value || '').split('\n');
+    var n = 0;
+    lines.forEach(function (line) {
+      var p = line.split('#').map(function (s) { return s.trim(); });
+      var it = null;
+      if (p.length >= 4) it = { remark: p[0], mchId: p[1], appId: p[2], package: p.slice(3).join('#') };
+      else if (p.length === 3) it = { remark: '', mchId: p[0], appId: p[1], package: p[2] };
+      if (it && it.mchId && it.appId && it.package) {
+        it.id = 'm' + (items.length + 1); it.status = 'pending'; it.local = true; it.wxName = '手动导入';
+        items.push(it); n++;
+      }
+    });
+    $('sub').textContent = '手动导入 ' + items.length + ' 笔';
+    if (!n) err('没有解析到有效的收款单'); else err('');
+    render();
+  }
+
+  // ---------- 启动 ----------
+  var q = parseHash();
+  api = (q.a || '').replace(/\/+$/, '');
+  token = q.t || '';
+  $('reloadBtn').onclick = load;
+  $('allBtn').onclick = payAll;
+  $('manualBtn').onclick = manualImport;
+  renderEnv();
+  if (!api || !token) {
+    $('sub').textContent = '没有收款链接参数';
+    show('manualBox', true);
+  } else if (!/^https:\/\/[^\/?#@]+$/i.test(api) || (ALLOWED_API.length && ALLOWED_API.indexOf(api) < 0)) {
+    $('sub').textContent = '链接无效';
+    err('收款链接里的服务地址不被允许：' + api);
+  } else {
+    load();
+  }
 })();
 </script>
 </body>
